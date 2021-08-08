@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  example: &example
+    build:
+      context: .
+      dockerfile: ./compose/local/example/Dockerfile
+    image: local_example
+    container_name: example
+    depends_on:
+      - awsservices
+    volumes:
+      - .:/app
+    env_file:
+      - ./compose/local/awsservice/.env
+      - ./compose/local/example/.env
+    ports:
+      - "8080:8080"
+    command: /start
+
+  awsservices:
+    container_name: awsservices
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566" # Edge router
+    env_file:
+      - ./compose/local/awsservice/.env
+      - ./compose/local/example/.env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+ 

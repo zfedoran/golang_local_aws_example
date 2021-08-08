@@ -1,0 +1,46 @@
+#!/bin/sh
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+>&2 echo "BEGIN-ENTRYPOINT----------------------------------------------------------------"
+
+# https://github.com/localstack/localstack/issues/732
+>&2 echo "Waiting for local AWS services at address ${AWS_ENDPOINT}/health, attempting every 5s"
+until $(curl --silent --fail ${AWS_ENDPOINT}/health | grep "\"sqs\": \"running\"" > /dev/null); do
+    >&2 echo "waiting..."
+    sleep 5
+done
+>&2 echo ' Success: Reached AWS'
+
+# TODO: get/create your AWS mock services here
+
+>&2 aws sqs create-queue --queue-name foobar --endpoint-url=${AWS_ENDPOINT}
+>&2 aws sqs list-queues --endpoint-url=${AWS_ENDPOINT}
+>&2 aws dynamodb create-table \
+    --table-name FooBar \
+    --attribute-definitions \
+        AttributeName=Artist,AttributeType=S \
+        AttributeName=SongTitle,AttributeType=S \
+    --key-schema \
+        AttributeName=Artist,KeyType=HASH \
+        AttributeName=SongTitle,KeyType=RANGE \
+--provisioned-throughput \
+        ReadCapacityUnits=10,WriteCapacityUnits=5 \
+--endpoint-url=${AWS_ENDPOINT}
+
+# Example of how to wait for a specific AWS resource (which can be created manually, if needed)
+
+QUEUE_URL="${AWS_ENDPOINT}/000000000000/foobar"
+>&2 echo "Waiting for SQS at address $QUEUE_URL, attempting every 5s"
+until $(curl --silent --fail $QUEUE_URL | grep "<QueueUrl>$QUEUE_URL</QueueUrl>" > /dev/null); do
+    >&2 echo "waiting..."
+    sleep 5
+done
+>&2 echo ' Success: Reached SQS'
+
+>&2 echo "END-ENTRYPOINT------------------------------------------------------------------"
+
+
+exec "$@"
